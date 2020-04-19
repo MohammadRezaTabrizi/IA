@@ -1,0 +1,185 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Oct 27 11:05:42 2019
+
+@author: Reza
+"""
+
+import pandas as pd
+
+import tensorflow as tf
+from keras import datasets, layers, models
+
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from tqdm import tqdm #barra de progreso`
+import cv2
+from glob import glob
+
+#para redimencionar
+import sklearn
+import skimage
+from skimage.transform import resize
+
+import random
+#Usaremos datetime para nombrar archivos
+import datetime
+
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+from skimage.color import rgb2gray
+from sklearn.model_selection import train_test_split
+import keras
+
+labels = []
+imagens = []
+def load_data(data_directory):
+    dirs = [d for d in os.listdir(data_directory)
+        if os.path.isdir(os.path.join(data_directory,d))]
+
+
+    for d in dirs:
+        label_dir = os.path.join(data_directory,d)
+        file_name = [os.path.join(label_dir, f)
+                    for f in tqdm(os.listdir(label_dir))
+                    if f.endswith(".png")]
+        
+        for f in file_name:
+            img_file =(skimage.data.imread(f))
+            img_file = skimage.transform.resize(img_file, (50, 50, 3),mode='constant',anti_aliasing=True)
+            imagens.append(img_file)
+            labels.append(int(d))
+
+    return imagens, labels
+
+a=1000
+for x in range(1000,1050):
+    datas =load_data(str(a))
+    a=a+1
+
+
+imagens = np.asarray(imagens)
+labels = np.asarray(labels) 
+
+np.save('x_Image_data.npy', imagens)
+np.save('y_label_data.npy', labels)
+
+imagens=np.load('x_Image_data.npy')
+labels=np.load('y_label_data.npy')
+
+
+def plotHistogram(a):
+    plt.figure(figsize=(5,4))
+    plt.subplot(1, 2, 1)
+    plt.hist(a.ravel(), bins=255)
+    plt.subplot(1, 2, 2)
+    plt.imshow(a, cmap='gray', vmin=0, vmax=1)
+    plt.show()
+    
+plotHistogram(imagens[5])
+
+
+multipleImages = glob('1000/0/**')
+i_ = 0
+plt.rcParams['figure.figsize'] = (5.0, 5.0)
+plt.subplots_adjust(wspace=0, hspace=0)
+for l in multipleImages[:25]:
+    im = cv2.imread(l)
+    im = cv2.resize(im, (128, 128)) 
+    plt.subplot(5, 5, i_+1) 
+    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB)); plt.axis('off')
+    i_ += 1
+print("No Cacer")
+
+multipleImages = glob('1000/1/**')
+i_ = 0
+plt.rcParams['figure.figsize'] = (5.0, 5.0)
+plt.subplots_adjust(wspace=0, hspace=0)
+for l in multipleImages[:25]:
+    im = cv2.imread(l)
+    im = cv2.resize(im, (128, 128)) 
+    plt.subplot(5, 5, i_+1) 
+    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB)); plt.axis('off')
+    i_ += 1
+print("Cacer")
+import seaborn as sns
+
+plt.figure(figsize=(8,4))
+map_characters = {0: 'No Cancer', 1: 'Si Cancer'}
+dict_characters=map_characters
+
+df = pd.DataFrame()
+df["labels"]=labels
+lab = df['labels']
+dist = lab.value_counts()
+sns.countplot(lab)
+print(dict_characters)
+
+X_Reshaped = imagens.reshape(len(imagens),50,50,3)
+
+X_train, X_test, y_train, y_test = train_test_split(imagens, labels, test_size = 0.3,random_state=1)
+
+model = models.Sequential()
+
+model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(50, 50, 3)))
+model.add(layers.MaxPooling2D((2, 2)))
+
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+
+
+model.add(layers.Flatten())
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(2, activation='softmax'))
+
+model.summary()
+
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+history=model.fit(X_train, 
+          y_train, 
+          epochs=15,validation_data=(X_test, y_test))
+
+#validation_data = (X_test,y_test)
+test_loss, test_acc = model.evaluate(X_test, y_test)
+train_loss, train_acc = model.evaluate(X_train, y_train)
+
+print(test_acc)
+plt.figure(figsize=(5,4))
+plt.subplot(1, 2, 1)
+plt.plot(history.history['acc'])
+plt.plot(history.history['val_acc'])
+plt.title('Model accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.show()
+plotHistogram(X_train[3])
+
+# Plot training & validation loss values
+plt.figure(figsize=(5,4))
+plt.plot(history.history['loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.show()
+print(train_loss)
+print(train_acc)
+print(test_loss)
+print(test_acc)
